@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "personal-finance-457816",
+  "private_key_id": "78123484afe7f714a695b572d9650431a8e990be",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDEodeIgmcRYs8s\nIAqyNEx1RjxlajiwfcRUH69KQbAjOXKekzm6MSED02ERiU50cvl9V4xv5GteYcKa\nKeY5xYbt2yDOtxsPojKipbBSHoVofnegR6xVdV+PrpC+Nisj+PqzNgGODYY0vk1K\n40rHfQTHEejOO2kZWkSKxfye3BslEVxoud56dCf+xG3o9wALcCM7gz8oz5q9wC4M\n6frWgWUERMe3329Bp3Ki8I3VUU8STlIdcIlQQ7QUZS+BhvELy4VEX9h23HDm0UXn\nEe5urHEuYggYQ+iXSpSJDhkoUeAd+Ef/TGdm+i6mI1tw8bekokwU8qRn6vLvZPUL\nJXjfeO3bAgMBAAECggEAE0O7SaO5CbIxaPnPV8vu7RMktKzrq+2j0A11+jj6/aB8\naH6KdSxTYea88l+49jNo2ne63yA1HWnyNnIXcnPgodTKXzuqT5BNFLQAqohUpWW1\nPlih+5IZ0DUX95gisY4MWzArMSnbCwzVUW/OXO1p4T+8cYQkP7h2fFV5yBikIi/o\nAKeqGC2irnZz7Jmbysvb+ZP0ZpsWRKeT/9jJvXRHJyrOGD5q/c6d8ZuySEJDMCN/\n66XKcRQ54vQDhI0w63HmKkpzob+HHPHnxqaKgWC9pQ1QewHKpopUn7U2fDumErI1\nLYjxNOHroOz6XbSpEIv03nfepJaHFImNW4QNRPWURQKBgQDxYxgVzc023CjAFbyt\n8ELwY+wfmAIid4OIH1B47b91tWtjMeHSKis1SNlTtZDPany0mXsC8gdlTKQGMyVR\no+Mui+gBZDnEp+++wgAKXwrSpi+AtY3gYKV1Hg3i0Z0x/4ws0LlxLweNxIzJhE/E\n0yi/aiv38/bVJhTExAAZnMKFXwKBgQDQiSg6xqUdDhHRpy0zefEoErNir0pf+9hg\nBMk3IS4J4jl2efFWZ/qckPkfbRJhgs4cap6p/1FeAp0UeKzg/Kn2zG6KSAxruuWD\nRL2jjeWp3QlDCrhOF7uprE0si8tVi/Rat/7JrV38NcbJvfGLlgVUx1jLJeadE3rX\nMtDXsCmNBQKBgEflfAcChV0RthGAZ/Jm3Yk8OdgvLnOVpVel/BIIvj4RCytAcEJo\nzPXR/Okx6y/cR8iC7mCyNgG2EiTGlxb5+XCjuzau44XvfzkSD3EHXfHgDcYITXnH\nT4DSstAcHvYFZ3rxsEpF97oCEOz0u82kFz7sIKx5vcs+zHDO8DiwuD+BAoGADMGn\nJVlLdmiK7IFGgZSfDO1/7bR9Xzu/s7f3OxkbgN1G2JmDCt8XdIZlxudcLXzb8N8Q\nz6NfrdmJFFyBbs3l88Pzqx/XKqvnKE2HMD8Y4ngz/dblCVnoT+vLWMNAb/48t2P0\nARBK5IfBnkuxP/GwZ8w+AUdTQR6U8B8aqWcMU6UCgYEApDH2xAoPBqX1T+d788Wq\nlIHQwo7JTBoGIn0roX8V0nkPRCEfRZYiM+6PQSJkBJziO3e60cnYK1TLalX21Hke\nbi47Qo+necSVlXuj5PqrWbLpRGehSZajjU5YjMmsao8G+U1iiDWGzGPVa6FfodxY\nAzypE8wOOd1lTaq4sAPq0YY=\n-----END PRIVATE KEY-----\n",
+  "client_email": "personalfinance@personal-finance-457816.iam.gserviceaccount.com",
+  "client_id": "115380517706767856915",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/personalfinance%40personal-finance-457816.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

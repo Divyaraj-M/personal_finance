@@ -1,77 +1,68 @@
-# In app.py, under your Streamlit app’s main loop:
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-import datetime
+from datetime import datetime
+import plotly.express as px
+import plotly.graph_objects as go
+import matplotlib.pyplot as plt
 
-scope = ["https://spreadsheets.google.com/feeds","https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], scope)
-gc = gspread.authorize(creds)
-SHEET_URL = st.secrets["sheet_url"]
-wb = gc.open_by_url(SHEET_URL)
 
-def load_transactions():
-    sh = wb.worksheet("bank_transactions")
-    data = sh.get_all_records()
-    df = pd.DataFrame(data)
-    df["txn_timestamp"] = pd.to_datetime(df["txn_timestamp"])
-    df["amount"] = pd.to_numeric(df["amount"])
-    return df
+# SETUP Google Sheet Connection
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+creds = ServiceAccountCredentials.from_json_keyfile_name("gcred.json", scope)
+client = gspread.authorize(creds)
 
-# --- assume load_transactions() is defined above ---
-# def load_transactions(): ...
 
-def dashboard_page():
-    st.title("📊 Financial Dashboard")
+st.set_page_config(page_title="Finance Dashboard", layout="wide")
+st.title("💼 Personal Finance Dashboard")
 
-    # Load & filter data
-    df = load_transactions()
-    df['txn_timestamp'] = pd.to_datetime(df['txn_timestamp'])
-    df['amount'] = pd.to_numeric(df['amount'])
+sheet = client.open("FINANCE TRACKER").sheet1
+df = pd.DataFrame(sheet.get_all_records())
 
-    # Sidebar filters
-    st.sidebar.header("Filters")
-    min_date = df['txn_timestamp'].dt.date.min()
-    max_date = df['txn_timestamp'].dt.date.max()
-    date_range = st.sidebar.date_input("Date range", [min_date, max_date])
-    categories = st.sidebar.multiselect(
-        "Categories", df['category'].unique(), df['category'].unique()
-    )
 
-    df = df[
-        (df['txn_timestamp'].dt.date >= date_range[0]) &
-        (df['txn_timestamp'].dt.date <= date_range[1]) &
-        (df['category'].isin(categories))
-    ]
 
-    # KPIs
-    total = df['amount'].sum()
-    avg_daily = df.groupby(df['txn_timestamp'].dt.date)['amount'].sum().mean()
-    weeks = df['txn_timestamp'].dt.to_period('W').nunique()
+# Convert Date column to datetime
+df['Date'] = pd.to_datetime(df['Date'])
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Total Spent", f"₹{total:,.0f}")
-    c2.metric("Avg Daily Spend", f"₹{avg_daily:,.0f}")
-    c3.metric("Weeks Covered", weeks)
+# Sidebar Filters
+st.sidebar.header("🔍 Filters")
+min_date = df['Date'].min()
+max_date = df['Date'].max()
 
-    # Weekly trend
-    weekly = df.set_index('txn_timestamp').resample('W')['amount'].sum().reset_index()
-    fig_w = px.line(weekly, x='txn_timestamp', y='amount', title="Weekly Expense Trend")
-    st.plotly_chart(fig_w, use_container_width=True)
+start_date = st.sidebar.date_input("Start Date", min_date)
+end_date = st.sidebar.date_input("End Date", max_date)
+category = st.sidebar.multiselect("Category", options=df['category'].unique(), default=df['category'].unique())
 
-    # Monthly breakdown
-    monthly = df.set_index('txn_timestamp').resample('M')['amount'].sum().reset_index()
-    fig_m = px.bar(monthly, x='txn_timestamp', y='amount', title="Monthly Expenses")
-    st.plotly_chart(fig_m, use_container_width=True)
 
-    # Category distribution
-    cat_sum = df.groupby('category')['amount'].sum().reset_index()
-    fig_p = px.pie(cat_sum, names='category', values='amount', title="Expenses by Category")
-    st.plotly_chart(fig_p, use_container_width=True)
 
-# In your main app logic:
-page = st.sidebar.selectbox("Go to", ["Home", "Dashboard", "Plan Expenses"])
-if page == "Dashboard":
-    dashboard_page()
+# Apply filters
+filtered_df = df[
+    (df['Date'] >= pd.to_datetime(start_date)) &
+    (df['Date'] <= pd.to_datetime(end_date)) &
+    (df['category'].isin(category))
+
+]
+
+# Summary Metrics
+income = filtered_df[filtered_df['Type'] == 'Income']['amount'].sum()
+expense = filtered_df[filtered_df['Type'] == 'Expense']['amount'].sum()
+balance = income - expense
+
+st.markdown("### 💰 Summary")
+col1, col2, col3 = st.columns(3)
+col1.metric("Total Income", f"₹{income:,.2f}")
+col2.metric("Total Expense", f"₹{expense:,.2f}")
+col3.metric("Balance", f"₹{balance:,.2f}")
+
+# Monthly Expense Chart
+filtered_df['Month'] = filtered_df['Date'].dt.to_period('M').astype(str)
+monthly_summary = filtered_df[filtered_df['Type'] == 'Expense'].groupby('Month')['Amount'].sum().reset_index()
+
+st.markdown("### 📉 Monthly Expenses")
+fig = px.bar(monthly_summary, x='Month', y='Amount', title='Expenses Over Time', labels={'Amount': '₹'}, text='Amount')
+st.plotly_chart(fig, use_container_width=True)
+
+# Display full filtered table
+with st.expander("📋 View All Filtered Transactions"):
+    st.dataframe(filtered_df.sort_values(by="Date", ascending=False), use_container_width=True)

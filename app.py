@@ -4,117 +4,152 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 import plotly.express as px
-import matplotlib.pyplot as plt
-from sklearn.linear_model import LinearRegression
 import numpy as np
 import plotly.graph_objects as go
-
+from sklearn.linear_model import LinearRegression
 
 # SETUP Google Sheet Connection
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name("gcred.json", scope)
+gc_scope = [
+    "https://spreadsheets.google.com/feeds",
+    "https://www.googleapis.com/auth/drive"
+]
+creds = ServiceAccountCredentials.from_json_keyfile_name("gcred.json", gc_scope)
 client = gspread.authorize(creds)
 
+# PAGE CONFIGURATION
 st.set_page_config(page_title="Finance Dashboard", layout="wide")
 st.title("💼 Personal Finance Dashboard")
 
+# LOAD DATA
 sheet = client.open("FINANCE TRACKER").sheet1
 df = pd.DataFrame(sheet.get_all_records())
 
-# Clean column names (strip, lowercase)
+# CLEAN & PREPARE
+# Normalize columns
 df.columns = df.columns.str.strip().str.lower()
-
-# Standardize and map 'type' column
-df['type'] = df['type'].str.strip().str.lower()
-df['type'] = df['type'].map({'credit': 'income', 'debit': 'expense'})
-
-# Ensure 'amount' is numeric
+# Timestamp
+df['txn_timestamp'] = pd.to_datetime(df.get('txn_timestamp', df.get('date')), errors='coerce')
+# Map type to income/expense
+df['type'] = df['type'].str.strip().str.lower().map({'credit': 'income', 'debit': 'expense'})
+# Ensure numeric amount
 df['amount'] = pd.to_numeric(df['amount'], errors='coerce')
+# Derive date & month
+df['date'] = df['txn_timestamp'].dt.date
 
-# Convert 'date' column to datetime
-df['date'] = pd.to_datetime(df['date'], errors='coerce')
+df['month'] = pd.to_datetime(df['date']).dt.to_period('M').astype(str)
 
-# Sidebar Filters
+# SIDEBAR FILTERS
 st.sidebar.header("🔍 Filters")
 min_date = df['date'].min()
 max_date = df['date'].max()
+start_date, end_date = st.sidebar.date_input("Date range", [min_date, max_date])
+filtered = df[(df['date'] >= start_date) & (df['date'] <= end_date)]
 
-start_date = st.sidebar.date_input("Start Date", min_date)
-end_date = st.sidebar.date_input("End Date", max_date)
-category = st.sidebar.multiselect("Category", options=df['category'].dropna().unique(), default=df['category'].dropna().unique())
+# CALCULATE SUMMARY METRICS
+# Total income & expense in filtered period
+total_inc = filtered.loc[filtered['type']=='income', 'amount'].sum()
+total_exp = filtered.loc[filtered['type']=='expense', 'amount'].sum()
+balance = total_inc - total_exp
 
-# Apply filters
-filtered_df = df[
-    (df['date'] >= pd.to_datetime(start_date)) &
-    (df['date'] <= pd.to_datetime(end_date)) &
-    (df['category'].isin(category))
-]
+# Additional KPIs
+savings_rate = (total_inc - total_exp) / total_inc if total_inc > 0 else 0
+exp_ratio = total_exp / total_inc if total_inc > 0 else 0
+avg_inc = filtered.loc[filtered['type']=='income', 'amount'].mean()
+avg_exp = filtered.loc[filtered['type']=='expense', 'amount'].mean()
 
-# Summary Metrics
-income = filtered_df[filtered_df['type'] == 'income']['amount'].sum()
-expense = filtered_df[filtered_df['type'] == 'expense']['amount'].sum()
-balance = income - expense
-
-st.markdown("### 💰 Summary")
-col1, col2, col3 = st.columns(3)
-col1.metric("Total Income", f"₹{income:,.2f}")
-col2.metric("Total Expense", f"₹{expense:,.2f}")
+# DISPLAY KPIS
+st.markdown("### 💰 Summary & KPIs")
+col1, col2, col3, col4, col5, col6 = st.columns(6)
+col1.metric("Total Income", f"₹{total_inc:,.2f}")
+col2.metric("Total Expense", f"₹{total_exp:,.2f}")
 col3.metric("Balance", f"₹{balance:,.2f}")
+col4.metric("Savings Rate", f"{savings_rate:.1%}")
+col5.metric("Expense Ratio", f"{exp_ratio:.1%}")
+col6.metric("Avg Income (₹)", f"₹{avg_inc:,.0f}")
+col6.metric("Avg Expense (₹)", f"₹{avg_exp:,.0f}")
 
-# Monthly Expense Chart
-filtered_df['month'] = filtered_df['date'].dt.to_period('M').astype(str)
-monthly_summary = filtered_df[filtered_df['type'] == 'expense'].groupby('month')['amount'].sum().reset_index()
+# CUMULATIVE BALANCE TREND
+trend = filtered.sort_values('txn_timestamp').copy()
+trend['signed_amt'] = trend['amount'] * trend['type'].map({'income': 1, 'expense': -1})
+trend['cum_balance'] = trend['signed_amt'].cumsum()
+fig_trend = px.line(
+    trend, x='txn_timestamp', y='cum_balance',
+    title='Cumulative Balance Over Time',
+    labels={'txn_timestamp':'Date','cum_balance':'Balance (₹)'}
+)
+st.plotly_chart(fig_trend, use_container_width=True)
 
-st.markdown("### 📉 Monthly Expenses")
-fig = px.bar(monthly_summary, x='month', y='amount', title='Expenses Over Time', labels={'amount': '₹'}, text='amount')
-st.plotly_chart(fig, use_container_width=True)
+# EXPENSE BY CATEGORY
+cat_summary = (
+    filtered[filtered['type']=='expense']
+    .groupby('category')['amount']
+    .sum()
+    .reset_index()
+)
+fig_cat = px.pie(
+    cat_summary, names='category', values='amount',
+    title='Expenses by Category'
+)
+st.plotly_chart(fig_cat, use_container_width=True)
 
-# Display full filtered table
-with st.expander("📋 View All Filtered Transactions"):
-    st.dataframe(filtered_df.sort_values(by="date", ascending=False), use_container_width=True)
+# TOP 5 TRANSACTIONS
+top5 = (
+    filtered.nlargest(5, 'amount')
+    [['txn_timestamp','type','merchant','category','amount']]
+)
+st.subheader("Top 5 Transactions")
+st.table(top5)
 
-# Prepare data
-monthly_data = filtered_df.copy()
-monthly_data['month'] = monthly_data['date'].dt.to_period('M').astype(str)
+# MONTHLY EXPENSE BAR
+monthly_exp = (
+    filtered[filtered['type']=='expense']
+    .groupby('month')['amount']
+    .sum()
+    .reset_index()
+)
+fig_mon = px.bar(
+    monthly_exp, x='month', y='amount',
+    title='Monthly Expenses', labels={'amount':'₹'}, text='amount'
+)
+st.plotly_chart(fig_mon, use_container_width=True)
 
-# Summarize income and expenses by month
-income_summary = monthly_data[monthly_data['type'].str.lower() == 'income'].groupby('month')['amount'].sum().reset_index()
-expense_summary = monthly_data[monthly_data['type'].str.lower() == 'expense'].groupby('month')['amount'].sum().reset_index()
-
-# Merge income and expenses
-full_summary = pd.merge(income_summary, expense_summary, on='month', how='outer', suffixes=('_income', '_expense')).fillna(0)
-
-# Create numeric X axis (month number)
-full_summary['month_num'] = np.arange(len(full_summary))
-
-# Model for Income
-income_model = LinearRegression()
-income_model.fit(full_summary[['month_num']], full_summary['amount_income'])
-
-# Model for Expense
-expense_model = LinearRegression()
-expense_model.fit(full_summary[['month_num']], full_summary['amount_expense'])
-
-# Predict next 6 months
-future_months = np.arange(len(full_summary), len(full_summary) + 6).reshape(-1,1)
-predicted_income = income_model.predict(future_months)
-predicted_expense = expense_model.predict(future_months)
-
-# Create future months labels
-last_month = pd.to_datetime(full_summary['month'].iloc[-1])
-future_month_labels = [(last_month + pd.DateOffset(months=i)).strftime('%Y-%m') for i in range(1,7)]
-
-# Plot
-fig_pred = go.Figure()
-
-# Actuals
-fig_pred.add_trace(go.Scatter(x=full_summary['month'], y=full_summary['amount_income'], mode='lines+markers', name='Actual Income'))
-fig_pred.add_trace(go.Scatter(x=full_summary['month'], y=full_summary['amount_expense'], mode='lines+markers', name='Actual Expense'))
-
-# Predictions
-fig_pred.add_trace(go.Scatter(x=future_month_labels, y=predicted_income, mode='lines+markers', name='Predicted Income', line=dict(dash='dash')))
-fig_pred.add_trace(go.Scatter(x=future_month_labels, y=predicted_expense, mode='lines+markers', name='Predicted Expense', line=dict(dash='dash')))
-
-fig_pred.update_layout(title='Income & Expense Forecast (Next 6 months)', xaxis_title='Month', yaxis_title='Amount (₹)', legend_title='Legend')
-
-st.plotly_chart(fig_pred, use_container_width=True)
+# FORECAST (Income & Expense)
+# Prepare time series
+inc_ts = (
+    filtered[filtered['type']=='income']
+    .groupby('month')['amount']
+    .sum()
+    .reset_index(name='inc')
+)
+exp_ts = (
+    filtered[filtered['type']=='expense']
+    .groupby('month')['amount']
+    .sum()
+    .reset_index(name='exp')
+)
+full = pd.merge(inc_ts, exp_ts, on='month', how='outer').fillna(0)
+full['x'] = np.arange(len(full))
+# Fit models
+model_inc = LinearRegression().fit(full[['x']], full['inc'])
+model_exp = LinearRegression().fit(full[['x']], full['exp'])
+# Predict next 6
+fut_x = np.arange(len(full), len(full)+6).reshape(-1,1)
+f_inc = model_inc.predict(fut_x)
+f_exp = model_exp.predict(fut_x)
+# Future labels
+last_month = pd.to_datetime(full['month'].iloc[-1])
+fut_labels = [
+    (last_month + pd.DateOffset(months=i)).strftime('%Y-%m')
+    for i in range(1,7)
+]
+# Plot forecast
+fig_f = go.Figure()
+fig_f.add_trace(go.Scatter(x=full['month'], y=full['inc'], mode='lines+markers', name='Actual Income'))
+fig_f.add_trace(go.Scatter(x=full['month'], y=full['exp'], mode='lines+markers', name='Actual Expense'))
+fig_f.add_trace(go.Scatter(x=fut_labels, y=f_inc, mode='lines+markers', name='Predicted Income', line=dict(dash='dash')))
+fig_f.add_trace(go.Scatter(x=fut_labels, y=f_exp, mode='lines+markers', name='Predicted Expense', line=dict(dash='dash')))
+fig_f.update_layout(
+    title='Income & Expense Forecast (Next 6 Months)',
+    xaxis_title='Month', yaxis_title='Amount (₹)'
+)
+st.plotly_chart(fig_f, use_container_width=True)
